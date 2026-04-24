@@ -1,0 +1,472 @@
+---
+title: "STA305H5S: Project"
+author: "Nipun Jaiswal(1008726826), Ashwin Selvapandian(1009910811), Tristan Copplestone(1008322389)"
+date: "Winter 2026"
+output: 
+  pdf_document:
+    latex_engine: xelatex
+    number_sections: true
+spacing: double
+header-includes:
+  - \usepackage{fancyhdr}
+  - \pagestyle{fancy}
+  - \fancyhead[L]{STA305H5-Experimental Design}
+  - \fancyfoot[CO,CE]{}
+  - \fancyfoot[LE,RO]{\thepage}
+  - \usepackage{setspace}\doublespacing
+---
+
+\newpage 
+\tableofcontents 
+\newpage
+```{r scidesignR, echo = FALSE}
+#install.packages("scidesignR")
+library(scidesignR)
+```
+
+# Part 1: Comparing Two Treatments
+
+Choose fertdat (fertilizer A vs B)
+
+## Task 1: State the research question, experimental units, response, and treatment factor
+
+Research Question: Does Fertilizer Level A have higher wheat yield than Fertilizer Level B. 
+
+Experimental units:  wheat farms. 
+
+Response factor: fert - wheat yield. 
+
+Treatment factor: trt - Level of fertilizer (A or B)
+
+## Task 2: EDA: summaries and plots by treatment.
+
+```{r fertdat EDA, fig.height=3, echo=FALSE}
+# Extract yields for Fertilizer A
+yA <- fertdat$fert[fertdat$trt == "A"]
+# Extract yields for Fertilizer B
+yB <- fertdat$fert[fertdat$trt == "B"]
+```
+```{r fertdat EDA_2, fig.height=3}
+summary(yA); sd(yA); quantile(yA,prob=c(0.25,0.75))
+summary(yB); sd(yB); quantile(yB,prob=c(0.25,0.75))
+```
+```{r fertdat EDA_3, fig.height=3, echo=FALSE}
+wheatdat <- stack(data.frame(yA,yB))
+###### Create Emperical CDF plots
+plot.ecdf(yB,xlab="yield", main="Empirical CDF Fertilizer")
+plot.ecdf(yA,col="blue",pch=2,add=T);abline(v=20,lty=2)
+
+```
+
+## Task 3: Check normality of residuals (e.g., QQ plot, Shapiro test) and fixed variance assumptions
+
+```{r fertdat assumption, fig.height=3, echo=FALSE}
+####### Create QQPlots and Shapiro test for normality
+qqnorm(yA,main = "Fertilizer A");qqline(yA) 
+```
+p-value of the Shapiro-Wilk test for yA = 0.9227 => Don't have enough evidence to say it is not normal
+```{r fertdat assumption 2, fig.height=3, echo=FALSE}
+qqnorm(yB,main = "Fertilizer B");qqline(yB)
+```
+p-value of the Shapiro-Wilk test for yB = 0.5322 => Don't have enough evidence to say it is not normal. 
+An F-test (var.equal) confirmed equal variances (p = 0.217) 
+
+## Tasks 4 and 5: t.test and report the results and a 95% CI, and interpret in context.
+
+A two-sample t-test yielded no significant difference in yields (t(10) = 0.521), with a p value of 0.3068, and with a 95% CI of [-4.21, $\infty$]
+
+# Part 2: Power & Sample Size
+
+## Task 1: Define a practically meaningful effect size
+
+A meaningful effect size is the difference of means between yA and yB = 1.7
+
+## Task 2: Compute required sample size for 80% power at $\alpha$ = 0.05 using exact method (e.g., power.t.test()) or Simulation-based power check.
+
+To achieve 80% power at $\alpha = 0.05$ for the observed effect size (1.7), a sample size of 175 per group is required. A simulation-based check (5,000 iterations) estimated current power at only 8.22%
+
+## Task 3: Briefly discuss how sample size changes if effect size is smaller or variability is larger.
+
+$n = \frac{2(Z_{\alpha/2} + Z_{\beta})^2 \cdot \sigma^2}{(\mu_1 - \mu_2)^2}$. This means the effect size is inversely proportional to n, that is, an increase in the effect size decreases the sample size and vice versa. The equations also shows us that if variance increases, the sample size increases, and vice versa.
+
+# Part 3: More Than Two Treatments
+
+## 3A: One-way ANOVA
+
+The dataset chosen is painstudy
+
+### Task 1: Fit one-way ANOVA; check assumptions; interpret results
+
+The ANOVA for the pain study indicated significant differences between treatments (F(2,147) = 98.92) with p value <2e-16
+
+```{r painstudy ANOVA, fig.height=3, echo=FALSE}
+pain = painstudy$pain
+trt = as.factor(painstudy$trt)
+aov.pain <- aov(pain~trt,data=painstudy)
+############## Checking Assumption: Normality
+qqnorm(aov.pain$residuals, main="Normal Q-Q Plot for pain study")
+qqline(aov.pain$residuals)
+```
+
+Based on the Q-Q plot, we can assume normality
+
+```{r painstudy Variance assumptions, fig.height=3, echo=FALSE}
+############# Checking Assumption: Constant Variance
+plot(aov.pain$fitted.values,aov.pain$residuals,ylab="Residuals",xlab="Fitted",
+     main="Pain study")
+abline(h=0)
+```
+
+Based on the plot, we can assume equality of variances.
+
+We run a Pairwise comparisons using t tests with pooled SD. 
+
+P value adjustment method: bonferroni. 
+
+Group A vs. Group B: The p-value is 0.00015. Since 0.00015 < 0.05, there is a statistically significant difference in pain scores between treatments A and B.  
+
+Group A vs. Group C: The p-value is <2e-16. This represents an extremely high level of statistical significance, indicating that Group A and Group C are different.
+
+Group B vs. Group C: The p-value is <2e-16. This represents an extremely high level of statistical significance, indicating that Group B and Group C are different.
+
+We also run anova:  
+
+Sum of Squares:  
+
+trt = 355.84: This is the Between-Group variation. it represents the portion of pain differences caused by the different treatments.
+
+Residuals = 264.40: This is the Within-Group variation (or Error). It represents the "noise" or random differences between individual patients that the treatment cannot explain. 
+
+Mean Squure  
+
+trt = 177.920: Calculated as $\frac {355.84}{2}$, this is the variance between treatment means. 
+
+Residuals (1.799): Calculated as $\frac {264.4}{147}$ This is the pooled variance within the groups
+
+### Task 2: If significant, do post-hoc comparisons (e.g., Tukey) and interpret
+
+```{r painstudy Turkey, fig.height=3, echo=FALSE}
+plot(TukeyHSD(aov.pain))
+```
+
+Tukey HSD revealed significant differences between all pairs, with Treatment C showing the greatest reduction in pain compared to A and B
+
+## 3B: Randomized Block Design (RBD)
+
+The dataset used is shoedat_obs
+
+### Task 1: Identify the block variable and explain why blocking is appropriate.
+
+The block variable is boy. Blocking is appropriate because each boy wore both materials, so boy-to-boy differences can be controlled for in the analysis
+
+### Task 2: Fit the additive model (response on treatment + block)
+
+$\text{Wear}_{ij} = \mu + \text{Material}_i + \text{Boy}_j + \epsilon_{ij}$
+
+### Task 3: Compare conclusions vs a (hypothetical) unblocked analysis (briefly: what does blocking change?).
+
+In the blocked model, the material effect is not statistically significant (p = 0.220), and the block effect for boy is also not statistically significant (p = 0.888). In the unblocked model, the material effect is still not statistically significant (p = 0.136). Therefore, the conclusion is the same in both models: there is no significant evidence that the two materials differ in mean wear. Although material B has a slightly higher average wear than material A (11.38 versus 10.03), blocking did not change the conclusion here.
+
+## 3C: Latin Square
+
+Using dataset BR\_LatSq
+
+
+### Task 1: Identify the two blocking factors (row/column) and treatment.
+
+Blocking Factor 1 (Row): Dogs. 
+
+Blocking Factor 2 (Column): Weeks. 
+
+Treatment: Treat
+
+### Task 2: Fit response on row + col + trt
+
+$\hat{value} = 15.213 + 0.800{Treat_B} - 0.475{Treat_C} + 0.800{Treat_D} - 0.625{Dog_2} -1.075{Dog_3} - 0.975{Dog_4} + 0.475{Week_2} + 0.075{Week_3} + 0.275{Week_4}$
+
+
+```{r latsq fit model, fig.height=3, echo=FALSE}
+latinsq.auto <- lm(value~Treat+as.factor(Dogs)+as.factor(Weeks),data=BR_LatSq)
+####### Checking the Assumptions
+qqnorm(latinsq.auto$residuals,main="Q-Q Plot for weight loss")
+qqline(latinsq.auto$residuals)
+plot(latinsq.auto$fitted.values,latinsq.auto$residuals,ylab="Residuals",
+     xlab="Fitted", main="Serum Calcium Residuals")
+abline(h=0)
+```
+
+### Task 3: Interpret treatment effect conclusions.
+
+The coefficients represent the difference in Mg-per cent serum calcium compared to the baseline (Treatment A):  
+
+Treat B (+0.800): This treatment increases serum calcium by 0.800 units compared to Treatment A.  
+
+Treat C (-0.475): This treatment decreases serum calcium by 0.475 units compared to Treatment A.  
+
+Treat D (+0.800): This treatment has the exact same estimated effect as Treatment B, increasing calcium by 0.800 units.
+
+The F-statistic p-value (0.2628) and the treatment p-value (0.1162) indicate that the observed changes in serum calcium cannot be confidently attributed to the treatments. In short, the experiment does not show that the treatments have a meaningful effect.
+
+# Part 4: Factorial Design at Two Levels
+
+The dataset is wtlossdat
+
+## Task 1: Identify factors, levels, and response
+
+Factors: A - Level of food diary, B - Level of increasing activity and C - Level of home visit. 
+
+Levels: -1 and 1
+
+Response: y - Weight loss (kg)
+
+## Task 2: Estimate main effects and interactions (at least two-way).
+
+The main effects are calculated as twice the model coefficients. 
+The estimated effect for keeping a Food Diary (A) is 0.53 kg, for Activity (B) is -1.97 kg, and for Home Visits (C) is 0.58 kg. For the two way interaction AB, the interaction effect is 0.17 and for BC it is -0.58. The strongest two-way interaction is AC (0.62 kg), suggesting a strong relation between the levels of food diary and home visits. The three way interaction effect ABC is 0.18.
+
+## Task 3: Fit an ANOVA/linear model including interactions (as appropriate).
+
+$y = \beta_0 + \beta_A A + \beta_B B + \beta_C C + \beta_{AB} AB + \beta_{AC} AC + \beta_{BC} BC + \beta_{ABC} ABC + \epsilon$
+
+$\hat{y} = 0.64 + 0.26A - 0.99B + 0.29C + 0.09AB + 0.31AC - 0.29BC + 0.09ABC$
+
+## Task 4: Use plots (main effects/interaction plots) to support interpretation.
+
+```{r wtloss plots, fig.height=3, echo=FALSE, fig.pos="H"}
+fact.mod <-lm(y~A*B*C,data=wtlossdat)
+############## Interaction Plots
+interaction.plot(wtlossdat$A,wtlossdat$B,wtlossdat$y, type="l", xlab="Level of food diary",trace.label="Level of increasing activity", ylab="Weight loss (kg)")
+```
+```{r wtloss plots_2, fig.height=3, echo=FALSE, fig.pos="H"}
+interaction.plot(wtlossdat$A,wtlossdat$C,wtlossdat$y, type="l", xlab="Level of food diary",trace.label="Level of home visit", ylab="Weight loss (kg)")
+```
+```{r wtloss plots_3, fig.height=3, echo=FALSE, fig.pos="H"}
+interaction.plot(wtlossdat$C,wtlossdat$B,wtlossdat$y, type="l",xlab="Level of home visit",trace.label="Level of increasing activity", ylab="Weight loss (kg)")
+```
+
+```{r FrF2, message=FALSE, warning=FALSE, results='hide', echo=FALSE}
+################################# full-Normal Plots  
+options(warn=-1)
+library(FrF2)
+```
+```{r DanielPlot, fig.height=4, echo=FALSE}
+DanielPlot(fact.mod, autolab=F, main="Normal plot of effects")
+```
+
+```{r BsMD, message=FALSE, warning=FALSE, results='hide', echo=FALSE}
+###################### Lenth’s Method 
+library(BsMD)
+```
+
+```{r LenthPlot, fig.height=4, echo=FALSE}
+LenthPlot(fact.mod,cex.fac = 0.8)
+```
+
+## Task 5: Provide a recommendation: which factor settings improve the outcome?
+
+The factor setting that improves the outcome (maximizes weight loss) is keeping a Food Diary (Factor A: Level 1) and receiving Home Visits (Factor C: Level 1), while maintaining a Lower Level of Increasing Activity (Factor B: Level -1). This can be seen in the graphs, where B has the "highest" negative value while A, C and A:C, all have really high positive values.
+
+\newpage
+# Appendix
+```{r, eval = FALSE}
+#install.packages("scidesignR")
+library(scidesignR)
+# See available datasets
+data(package = "scidesignR")
+
+################################ PART 1 #######################################
+
+View(fertdat)
+??ferdat
+summary(fertdat)
+# RQ: Does Fertilizer Level A have higher wheat yield than Fertilizer Level B
+# Experimental unit: wheat farms
+# Response factor: fert - wheat yield
+# Treatment factor: trt - Level of fertilizer (A or B)
+fertdat$trt
+
+# Extract yields for Fertilizer A
+yA <- fertdat$fert[fertdat$trt == "A"]
+# Extract yields for Fertilizer B
+yB <- fertdat$fert[fertdat$trt == "B"]
+
+################################# EDA:
+
+######### Summaries:
+summary(yA); sd(yA); quantile(yA,prob=c(0.25,0.75))
+summary(yB); sd(yB); quantile(yB,prob=c(0.25,0.75))
+
+######### Plots:
+wheatdat <- stack(data.frame(yA,yB))
+
+###### Create Emperical CDF plots
+plot.ecdf(yB,xlab="yield", main="Empirical CDF Fertilizer")
+plot.ecdf(yA,col="blue",pch=2,add=T);abline(v=20,lty=2)
+
+####### Create side-by-side boxplot
+boxplot(values~ind,data=wheatdat) 
+
+####### Create QQPlots and Shapiro test for normality
+qqnorm(yA,main = "Fertilizer A");qqline(yA) 
+shapiro.test(yA)
+# p-value = 0.9227 => Don't have enough evidence to say it is not normal
+
+qqnorm(yB,main = "Fertilizer B");qqline(yB)
+shapiro.test(yB)
+# p-value = 0.5322 => Don't have enough evidence to say it is not normal
+
+var.test(yA, yB)
+t.test(yA,yB,var.equal = TRUE,alternative = "greater") # 95 % CI
+######################################################
+######## Two-Sided Randomization p-value (Not needed because of research 
+######## question, but can change research question if you want to)
+#tbar <- mean(res)
+#pval_twosided <- sum(abs(res-tbar)>=abs(observed-tbar))/N
+#round(pval_twosided,2)
+
+
+# t.test(yB, yA, var.equal = TRUE)
+
+
+################################ PART 2 #######################################
+
+power.t.test(power = 0.8, delta = mean(yA)-mean(yB), 
+             sd = sqrt((var(yA) + var(yB)) / 2), 
+             sig.level = 0.05, type = "two.sample",
+             alternative = "two.sided")
+
+#Simulation-based power check ####
+
+set.seed(123)
+B <- 5000
+reject <- numeric(B)
+for (b in 1:B) {
+  xA <- rnorm(length(yA), mean = mean(yA), sd = sd(yA))
+  xB <- rnorm(length(yB), mean = mean(yB), sd = sd(yB))
+  reject[b] <- t.test(xA, xB, alternative = "two.sided", var.equal = TRUE)$p.value < 0.05
+}
+mean(reject)
+
+
+################################ PART 3A #######################################
+
+View(painstudy)
+?painstudy
+
+pain = painstudy$pain
+trt = as.factor(painstudy$trt)
+aov.pain <- aov(pain~trt,data=painstudy) #anova(lm(pain~trt))
+summary(aov.pain)
+plot(aov.pain$fitted.values,aov.pain$residuals,ylab="Residuals",
+     xlab="Fitted",main="Pain Study")
+abline(h=0)
+
+boxplot(pain~trt)
+
+
+############## Checking Assumption: Normality
+
+sapply(split(pain,trt),mean)
+sapply(split(pain,trt),sd)
+
+qqnorm(aov.pain$residuals, main="Normal Q-Q Plot for pain study")
+qqline(aov.pain$residuals)
+anova(lm(pain~trt))
+contrasts(trt) <- contr.treatment(3); contrasts(trt) 
+
+#contrasts(trt) <- contr.sum(3); contrasts(trt) 
+
+class(trt)
+
+lm.pain <- lm(pain~trt);
+summary(lm.pain)$coefficients
+model.matrix(lm.pain)
+
+############# Checking Assumption: Constant Variance
+plot(aov.pain$fitted.values,aov.pain$residuals,ylab="Residuals",xlab="Fitted",
+     main="Pain study")
+abline(h=0)
+
+
+#### Multiple Comparison
+pairwise.t.test(pain,trt,p.adjust.method = "bonferroni")
+########
+pairwise.t.test(pain,trt,p.adjust.method = "none")
+########
+
+TukeyHSD(aov.pain)
+plot(TukeyHSD(aov.pain))
+
+################################ PART 3B #######################################
+data("shoedat_obs")
+shoe_long <- data.frame(
+  boy = factor(rep(shoedat_obs$boy, each = 2)),
+  material = factor(rep(c("A", "B"), times = nrow(shoedat_obs))),
+  side = factor(c(rbind(shoedat_obs$sideA, shoedat_obs$sideB))),
+  wear = c(rbind(shoedat_obs$wearA, shoedat_obs$wearB))
+)
+
+shoe_long
+tapply(shoe_long$wear, shoe_long$material, mean)
+
+model_blocked <- aov(wear ~ material + boy, data = shoe_long)
+summary(model_blocked)
+
+model_unblocked <- aov(wear ~ material, data = shoe_long)
+summary(model_unblocked) 
+################################ PART 3C #######################################
+
+View(BR_LatSq)
+?BR_LatSq
+
+latinsq.auto <- lm(value~Treat+as.factor(Dogs)+as.factor(Weeks),data=BR_LatSq)
+anova(latinsq.auto)
+summary(latinsq.auto)
+######################################################
+####### Checking the Assumptions
+qqnorm(latinsq.auto$residuals,main="Q-Q Plot for weight loss")
+qqline(latinsq.auto$residuals)
+###
+plot(latinsq.auto$fitted.values,latinsq.auto$residuals,ylab="Residuals",
+     xlab="Fitted", main="Serum Calcium Residuals")
+abline(h=0)
+##############
+
+
+################################ PART 4 #######################################
+
+View(wtlossdat)
+?wtlossdat
+
+############## Interaction Plots
+interaction.plot(wtlossdat$A,wtlossdat$B,wtlossdat$y, type="l"
+,xlab="Level of food diary",trace.label="Level of increasing activity", 
+ylab="Weight loss (kg)")
+
+interaction.plot(wtlossdat$A,wtlossdat$C,wtlossdat$y, type="l", 
+xlab="Level of food diary",trace.label="Level of home visit", 
+ylab="Weight loss (kg)")
+
+interaction.plot(wtlossdat$C,wtlossdat$B,wtlossdat$y, type="l",
+xlab="Level of home visit",trace.label="Level of increasing activity", 
+ylab="Weight loss (kg)")
+
+############# Linear Model for a $2^k$ Factorial Design 
+fact.mod <-lm(y~A*B*C,data=wtlossdat)
+round(summary(fact.mod)$coefficients,2)
+round(2*fact.mod$coefficients,2)
+
+#################################   Full-Normal Plots  
+options(warn=-1)
+library(FrF2) 
+DanielPlot(fact.mod, autolab=F, main="Normal plot of effects")
+
+################################## Half-Normal Plots   
+library(FrF2) 
+DanielPlot(fact.mod,half=TRUE,autolab=F,  main="Half-Normal plot of effects")
+
+###################### Lenth’s Method 
+library(BsMD)
+LenthPlot(fact.mod,cex.fac = 0.8)
+
+```
